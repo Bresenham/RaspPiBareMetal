@@ -1,24 +1,16 @@
 #include "gpio_conf.h"
 #include "stdbool.h"
 
-/* GPIO REGS */
-static volatile unsigned int* gpfsel4 = (unsigned int*)GPFSEL4;
-static volatile unsigned int* gpset1 = (unsigned int*)GPSET1;
-static volatile unsigned int* gpclr1 = (unsigned int*)GPCLR1;
-
-/* TIMER REGS */
-static volatile unsigned int* timer_load = (unsigned int*)TIMER_LOAD_ADDR;
-static volatile unsigned int* timer_ctrl = (unsigned int*)TIMER_CTRL_ADDR;
-static volatile unsigned int* timer_clear_irq = (unsigned int*)TIMER_CLEAR_IRQ;
-static volatile unsigned int* timer_read_irq = (unsigned int*)TIMER_READ_IRQ;
-
-/* INTERRUPT REGS */
-static volatile unsigned int* intr_pending = (unsigned int*)INTR_PENDING_ADDR;
-static volatile unsigned int* intr_enable_1 = (unsigned int*)INTR_ENABLE_1_ADDR;
-static volatile unsigned int* intr_enable_2 = (unsigned int*)INTR_ENABLE_2_ADDR;
-static volatile unsigned int* intr_enable_base = (unsigned int*)INTR_ENABLE_BASE_ADDR;
-
 static volatile bool led_on = false;
+
+void SET(unsigned int addr, unsigned int val){
+    volatile unsigned int *ptr = (unsigned int*)addr;
+    *ptr = val;
+}
+unsigned int GET(unsigned int addr){
+    volatile unsigned int *ptr = (unsigned int*)addr;
+    return *ptr;
+}
 
 __attribute__ ((naked, aligned(32))) static void interrupt_vectors(void)
 {
@@ -43,29 +35,26 @@ __attribute__ ((interrupt ("ABORT"))) void interrupt_prefetch_abort(void){}
 /* IRQs flash the OK LED */
 __attribute__ ((interrupt ("IRQ"))) void interrupt_irq(void)
 {
-    /* It's an ARM-Timer interrupt */
-    if(*timer_read_irq){
+    if(GET(TIMER_READ_IRQ)){
         if(led_on)
-            *gpclr1 |= (1 << LED_GPIO);
+            SET(GPCLR1, 1 << GPIO47);
         else
-            *gpset1 |= (1 << LED_GPIO);
+            SET(GPSET1, 1 << GPIO47);
         led_on = !led_on;
-        *timer_clear_irq = 0;
+        SET(TIMER_CLEAR_IRQ, 0);
     }
 }
 
 int main(void)
 {
-    /* Set LED-Pin as output */
-    *gpfsel4 |= (1 << LED_GPFSEL);
-    
+    SET(GPFSEL4, 1 << GPIO47_GPFSEL_OUT);
+
     asm volatile("mcr p15, 0, %[addr], c12, c0, 0" : : [addr] "r" (&interrupt_vectors));
     asm volatile("cpsie i");
-    
-    *intr_enable_base = 1;
-    *timer_load = 0x00020000;
-    *timer_ctrl = (1 << TIMER_32BIT_MODE) | (1 << TIMER_IRQ_ENABLE) | (1 << TIMER_ENABLE);
-    
+    SET(INTR_ENABLE_BASE, 1 << INTR_ENABLE_BASE_TIMER_IRQ);
+    SET(TIMER_LOAD, 0x00020000);
+    SET(TIMER_CTRL, (1 << TIMER_32BIT_MODE) | (1 << TIMER_IRQ_ENABLE) | (1 << TIMER_ENABLE));
+
     while(1)
         ;
 }
