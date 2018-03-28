@@ -12,7 +12,8 @@ unsigned int GET(unsigned int addr){
 
 __attribute__ ((naked, aligned(32))) static void interrupt_vectors(void)
 {
-	asm volatile("b bad_exception\n"	/* RESET */
+	asm volatile(
+        "b bad_exception\n"	/* RESET */
 		"b bad_exception\n"	/* UNDEF */
 		"b interrupt_swi\n"
 		"b interrupt_prefetch_abort \n"
