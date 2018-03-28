@@ -3,13 +3,11 @@
 
 static volatile bool led_on = false;
 
-void SET(unsigned int addr, unsigned int val){
-    volatile unsigned int *ptr = (unsigned int*)addr;
-    *ptr = val;
-}
+void SET(unsigned int addr, unsigned int val){ asm volatile(" str %0,[%1] " : : "r" (val), "r" (addr));}
 unsigned int GET(unsigned int addr){
-    volatile unsigned int *ptr = (unsigned int*)addr;
-    return *ptr;
+    volatile unsigned int res;
+    asm volatile(" ldr %0,[%0] " : "=r" (res) : "r" (addr));
+    return res;
 }
 
 __attribute__ ((naked, aligned(32))) static void interrupt_vectors(void)
